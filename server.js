@@ -66,6 +66,7 @@ app.use(express.json());
 // =====================
 const allowedOrigins = [
   "http://localhost:5173",            // local frontend
+   "https://ecommerce-frontend-flame-tau.vercel.app",
   process.env.FRONTEND_URL,
   process.env.CLIENT_URL,
 ].filter(Boolean); // remove undefined values
