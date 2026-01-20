@@ -122,4 +122,56 @@ router.post("/verify", async (req, res) => {
   }
 });
 
+// =====================
+// 🔥 WEBHOOK HANDLER (NEW!)
+// =====================
+router.post("/webhook", async (req, res) => {
+  try {
+    console.log("🎯 Webhook received from Cashfree:", req.body);
+
+    const { data } = req.body;
+    
+    if (!data) {
+      console.error("❌ Invalid webhook data");
+      return res.status(400).json({ success: false });
+    }
+
+    const { order_id, order_status, payment_amount } = data.order;
+
+    console.log(`📦 Order ID: ${order_id}`);
+    console.log(`💰 Amount: ${payment_amount}`);
+    console.log(`✅ Status: ${order_status}`);
+
+    // ✅ Payment successful
+    if (order_status === "PAID") {
+      console.log(`✅ Payment successful for order: ${order_id}`);
+      
+      // 🔥 TODO: Update order in your database here
+      // Example:
+      // await Order.findOneAndUpdate(
+      //   { orderId: order_id },
+      //   { 
+      //     paymentStatus: "SUCCESS",
+      //     transactionId: data.payment.cf_payment_id 
+      //   }
+      // );
+    } 
+    // ❌ Payment failed
+    else if (order_status === "FAILED") {
+      console.log(`❌ Payment failed for order: ${order_id}`);
+    }
+    // ⚠️ User cancelled
+    else if (order_status === "USER_DROPPED") {
+      console.log(`⚠️ User cancelled payment for order: ${order_id}`);
+    }
+
+    // ✅ Always respond with 200 to acknowledge webhook
+    return res.status(200).json({ success: true });
+
+  } catch (error) {
+    console.error("❌ Webhook error:", error);
+    return res.status(500).json({ success: false });
+  }
+});
+
 export default router;

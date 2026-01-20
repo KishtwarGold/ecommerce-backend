@@ -1,5 +1,6 @@
 import axios from "axios";
 
+// ✅ Ab yeh sahi API URL use karega
 const CASHFREE_API_URL = process.env.CASHFREE_ENV === "PROD" 
   ? "https://api.cashfree.com/pg" 
   : "https://sandbox.cashfree.com/pg";
@@ -18,10 +19,15 @@ export async function createOrder({ orderId, amount, customer }) {
       },
       order_meta: {
         return_url: `${process.env.CLIENT_URL}/payment-status?order_id=${orderId}`,
+        // ✅ Webhook URL add kiya
+        notify_url: `${process.env.CLIENT_URL}/api/payment/webhook`,
       },
     };
 
-    console.log("Cashfree Create Order Payload:", payload);
+    // ✅ Debug logs
+    console.log("🔥 Cashfree API URL:", CASHFREE_API_URL);
+    console.log("🔥 Environment:", process.env.CASHFREE_ENV);
+    console.log("🔥 Create Order Payload:", payload);
 
     const response = await axios.post(
       `${CASHFREE_API_URL}/orders`,
@@ -36,16 +42,19 @@ export async function createOrder({ orderId, amount, customer }) {
       }
     );
 
-    console.log("✅ Cashfree Order Created Successfully");
+    console.log("✅ Cashfree Order Created Successfully:", response.data);
     return response.data;
   } catch (err) {
-    console.error("Cashfree Create Order Error:", err.response?.data || err.message);
+    console.error("❌ Cashfree Create Order Error:", err.response?.data || err.message);
+    console.error("❌ Full Error:", err);
     throw err;
   }
 }
 
 export async function verifyOrder(orderId) {
   try {
+    console.log("🔍 Verifying order:", orderId);
+    
     const response = await axios.get(
       `${CASHFREE_API_URL}/orders/${orderId}`,
       {
@@ -58,10 +67,10 @@ export async function verifyOrder(orderId) {
       }
     );
 
-    console.log("✅ Cashfree Order Verified Successfully");
+    console.log("✅ Cashfree Order Verified:", response.data);
     return response.data;
   } catch (err) {
-    console.error("Cashfree Verify Order Error:", err.response?.data || err.message);
+    console.error("❌ Cashfree Verify Error:", err.response?.data || err.message);
     throw err;
   }
 }
