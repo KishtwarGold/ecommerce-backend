@@ -1,33 +1,14 @@
-import dotenv from "dotenv";
-dotenv.config();
+import axios from "axios";
 
-import * as Cashfree from "cashfree-pg";
+const CASHFREE_API_URL = process.env.CASHFREE_ENV === "PROD" 
+  ? "https://api.cashfree.com/pg" 
+  : "https://sandbox.cashfree.com/pg";
 
-/**
- * ============================
- * CASHFREE ENVIRONMENT SETUP
- * ============================
- */
-const envMode =
-  process.env.CASHFREE_ENV === "PROD"
-    ? Cashfree.Cashfree.PRODUCTION
-    : Cashfree.Cashfree.SANDBOX;
-
-// Set credentials (OFFICIAL WAY)
-Cashfree.Cashfree.XClientId = process.env.CASHFREE_CLIENT_ID;
-Cashfree.Cashfree.XClientSecret = process.env.CASHFREE_CLIENT_SECRET;
-Cashfree.Cashfree.XEnvironment = envMode;
-
-/**
- * ============================
- * CREATE CASHFREE ORDER
- * ============================
- */
 export async function createOrder({ orderId, amount, customer }) {
   try {
     const payload = {
       order_id: orderId,
-      order_amount: Number(amount),
+      order_amount: parseFloat(amount).toFixed(2),
       order_currency: "INR",
       customer_details: {
         customer_id: customer.customer_id || `CU_${Date.now()}`,
@@ -40,31 +21,47 @@ export async function createOrder({ orderId, amount, customer }) {
       },
     };
 
-    // Dev logs only
-    if (process.env.CASHFREE_ENV !== "PROD") {
-      console.log("Cashfree Create Order Payload:", payload);
-    }
+    console.log("Cashfree Create Order Payload:", payload);
 
-    const response = await Cashfree.Cashfree.PGCreateOrder(payload);
+    const response = await axios.post(
+      `${CASHFREE_API_URL}/orders`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-version": "2023-08-01",
+          "x-client-id": process.env.CASHFREE_CLIENT_ID,
+          "x-client-secret": process.env.CASHFREE_CLIENT_SECRET,
+        },
+      }
+    );
 
+    console.log("✅ Cashfree Order Created Successfully");
     return response.data;
   } catch (err) {
-    console.error("Cashfree Create Order Error:", err.message || err);
+    console.error("Cashfree Create Order Error:", err.response?.data || err.message);
     throw err;
   }
 }
 
-/**
- * ============================
- * VERIFY CASHFREE ORDER
- * ============================
- */
 export async function verifyOrder(orderId) {
   try {
-    const response = await Cashfree.Cashfree.PGFetchOrder(orderId);
+    const response = await axios.get(
+      `${CASHFREE_API_URL}/orders/${orderId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-version": "2023-08-01",
+          "x-client-id": process.env.CASHFREE_CLIENT_ID,
+          "x-client-secret": process.env.CASHFREE_CLIENT_SECRET,
+        },
+      }
+    );
+
+    console.log("✅ Cashfree Order Verified Successfully");
     return response.data;
   } catch (err) {
-    console.error("Cashfree Verify Order Error:", err.message || err);
+    console.error("Cashfree Verify Order Error:", err.response?.data || err.message);
     throw err;
   }
 }
