@@ -1,9 +1,21 @@
 import axios from "axios";
 
-// ✅ Ab yeh sahi API URL use karega
+// ✅ Use correct API URL
 const CASHFREE_API_URL = process.env.CASHFREE_ENV === "PROD" 
   ? "https://api.cashfree.com/pg" 
   : "https://sandbox.cashfree.com/pg";
+
+// ✅ Create axios instance for better performance
+const cashfreeClient = axios.create({
+  baseURL: CASHFREE_API_URL,
+  headers: {
+    "Content-Type": "application/json",
+    "x-api-version": "2023-08-01",
+    "x-client-id": process.env.CASHFREE_CLIENT_ID,
+    "x-client-secret": process.env.CASHFREE_CLIENT_SECRET,
+  },
+  timeout: 10000, // 10 second timeout
+});
 
 export async function createOrder({ orderId, amount, customer }) {
   try {
@@ -18,36 +30,33 @@ export async function createOrder({ orderId, amount, customer }) {
         customer_phone: customer.customer_phone,
       },
       order_meta: {
-        return_url: `${process.env.CLIENT_URL}/payment-status?order_id=${orderId}`,
-        // ✅ Webhook URL add kiya
-        notify_url: `${process.env.CLIENT_URL}/api/payment/webhook`,
+        return_url: `${process.env.FRONTEND_URL || process.env.CLIENT_URL}/payment-status?order_id=${orderId}`,
+        // ✅ FIXED: Webhook should point to BACKEND not CLIENT
+        notify_url: `${process.env.BACKEND_URL || 'https://ecommerce-backend-ip84.onrender.com'}/api/payment/webhook`,
       },
     };
 
-    // ✅ Debug logs
-    console.log("🔥 Cashfree API URL:", CASHFREE_API_URL);
-    console.log("🔥 Environment:", process.env.CASHFREE_ENV);
-    console.log("🔥 Create Order Payload:", payload);
+    console.log("💳 Creating Cashfree order...");
+    console.log("📍 Environment:", process.env.CASHFREE_ENV || 'SANDBOX');
+    console.log("📦 Order ID:", orderId);
+    console.log("💰 Amount:", amount);
 
-    const response = await axios.post(
-      `${CASHFREE_API_URL}/orders`,
-      payload,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-version": "2023-08-01",
-          "x-client-id": process.env.CASHFREE_CLIENT_ID,
-          "x-client-secret": process.env.CASHFREE_CLIENT_SECRET,
-        },
-      }
-    );
+    const response = await cashfreeClient.post("/orders", payload);
 
-    console.log("✅ Cashfree Order Created Successfully:", response.data);
+    console.log("✅ Order created successfully");
     return response.data;
+    
   } catch (err) {
-    console.error("❌ Cashfree Create Order Error:", err.response?.data || err.message);
-    console.error("❌ Full Error:", err);
-    throw err;
+    console.error("❌ Cashfree Create Order Error:");
+    console.error("Status:", err.response?.status);
+    console.error("Data:", err.response?.data);
+    console.error("Message:", err.message);
+    
+    throw new Error(
+      err.response?.data?.message || 
+      err.message || 
+      "Failed to create Cashfree order"
+    );
   }
 }
 
@@ -55,22 +64,19 @@ export async function verifyOrder(orderId) {
   try {
     console.log("🔍 Verifying order:", orderId);
     
-    const response = await axios.get(
-      `${CASHFREE_API_URL}/orders/${orderId}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-version": "2023-08-01",
-          "x-client-id": process.env.CASHFREE_CLIENT_ID,
-          "x-client-secret": process.env.CASHFREE_CLIENT_SECRET,
-        },
-      }
-    );
+    const response = await cashfreeClient.get(`/orders/${orderId}`);
 
-    console.log("✅ Cashfree Order Verified:", response.data);
+    console.log("✅ Order verified - Status:", response.data.order_status);
     return response.data;
+    
   } catch (err) {
-    console.error("❌ Cashfree Verify Error:", err.response?.data || err.message);
-    throw err;
+    console.error("❌ Cashfree Verify Error:");
+    console.error("Status:", err.response?.status);
+    console.error("Data:", err.response?.data);
+    
+    throw new Error(
+      err.response?.data?.message || 
+      "Failed to verify order"
+    );
   }
 }

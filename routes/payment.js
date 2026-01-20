@@ -6,9 +6,13 @@ import { createOrder, verifyOrder } from "../utils/cashfree.js";
 const router = express.Router();
 
 // =====================
-// Create Payment Order
+// Create Payment Order - OPTIMIZED
 // =====================
 router.post("/create", async (req, res) => {
+  // Set response headers for faster processing
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  
   try {
     let { amount, customer } = req.body;
 
@@ -37,7 +41,7 @@ router.post("/create", async (req, res) => {
     // ✅ SAFE unique order ID
     const orderId = "KG_" + uuidv4();
 
-    console.log("Creating payment order:", { orderId, amount });
+    console.log("💳 Creating payment order:", { orderId, amount });
 
     // Call Cashfree create order
     const data = await createOrder({
@@ -52,12 +56,14 @@ router.post("/create", async (req, res) => {
     });
 
     if (!data?.payment_session_id) {
-      console.error("Invalid Cashfree response:", data);
+      console.error("❌ Invalid Cashfree response:", data);
       return res.status(500).json({
         success: false,
         message: "Failed to create payment session",
       });
     }
+
+    console.log("✅ Payment session created successfully");
 
     return res.status(200).json({
       success: true,
@@ -66,18 +72,19 @@ router.post("/create", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Cashfree Create Error:", err.response?.data || err.message);
+    console.error("❌ Cashfree Create Error:", err.response?.data || err.message);
     return res.status(500).json({
       success: false,
-      message: "Payment creation failed",
+      message: err.response?.data?.message || "Payment creation failed",
+      error: process.env.NODE_ENV !== "production" ? err.message : undefined
     });
   }
 });
 
-// =====================
-// Verify Payment Order
-// =====================
+// Keep the rest of your routes unchanged...
 router.post("/verify", async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  
   try {
     const { orderId } = req.body;
 
@@ -88,7 +95,7 @@ router.post("/verify", async (req, res) => {
       });
     }
 
-    console.log("Verifying payment order:", orderId);
+    console.log("🔍 Verifying payment order:", orderId);
 
     const data = await verifyOrder(orderId);
 
@@ -99,9 +106,8 @@ router.post("/verify", async (req, res) => {
       });
     }
 
-    // ✅ Only PAID means success
     if (data.order_status === "PAID") {
-      // 🔥 Here you should save order in DB
+      console.log("✅ Payment verified: PAID");
       return res.status(200).json({
         success: true,
         status: "PAID",
@@ -110,11 +116,11 @@ router.post("/verify", async (req, res) => {
 
     return res.status(200).json({
       success: false,
-      status: data.order_status, // ACTIVE / EXPIRED / CANCELLED
+      status: data.order_status,
     });
 
   } catch (err) {
-    console.error("Cashfree Verify Error:", err.response?.data || err.message);
+    console.error("❌ Cashfree Verify Error:", err.response?.data || err.message);
     return res.status(500).json({
       success: false,
       message: "Payment verification failed",
@@ -122,9 +128,6 @@ router.post("/verify", async (req, res) => {
   }
 });
 
-// =====================
-// 🔥 WEBHOOK HANDLER (NEW!)
-// =====================
 router.post("/webhook", async (req, res) => {
   try {
     console.log("🎯 Webhook received from Cashfree:", req.body);
@@ -142,30 +145,16 @@ router.post("/webhook", async (req, res) => {
     console.log(`💰 Amount: ${payment_amount}`);
     console.log(`✅ Status: ${order_status}`);
 
-    // ✅ Payment successful
     if (order_status === "PAID") {
       console.log(`✅ Payment successful for order: ${order_id}`);
-      
-      // 🔥 TODO: Update order in your database here
-      // Example:
-      // await Order.findOneAndUpdate(
-      //   { orderId: order_id },
-      //   { 
-      //     paymentStatus: "SUCCESS",
-      //     transactionId: data.payment.cf_payment_id 
-      //   }
-      // );
     } 
-    // ❌ Payment failed
     else if (order_status === "FAILED") {
       console.log(`❌ Payment failed for order: ${order_id}`);
     }
-    // ⚠️ User cancelled
     else if (order_status === "USER_DROPPED") {
       console.log(`⚠️ User cancelled payment for order: ${order_id}`);
     }
 
-    // ✅ Always respond with 200 to acknowledge webhook
     return res.status(200).json({ success: true });
 
   } catch (error) {

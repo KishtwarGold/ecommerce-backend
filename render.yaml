@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: ecommerce-backend
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CASHFREE_ENV
+        value: PROD
+      - key: PORT
+        value: 5000
